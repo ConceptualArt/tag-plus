@@ -28,6 +28,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const markedContent = getMarkedContent();
     sendResponse({ success: true, content: markedContent });
     return true;
+  } else if (request.action === 'getAllPageContent') {
+    const pageContent = getAllReadableContent();
+    sendResponse({ success: true, content: pageContent });
+    return true;
   }
 });
 
@@ -226,6 +230,29 @@ function getMarkedContent() {
   });
   
   return markedContent;
+}
+
+function getAllReadableContent() {
+  // Get all text content from common readable elements
+  const readableSelectors = [
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'article', 'section', 'main',
+    'li', 'td', 'th', 'blockquote', 'pre'
+  ];
+  
+  let content = [];
+  
+  readableSelectors.forEach(selector => {
+    const elements = document.querySelectorAll(selector);
+    elements.forEach(el => {
+      const text = el.textContent.trim();
+      if (text && text.length > 0) {
+        content.push(text);
+      }
+    });
+  });
+  
+  return content.join(' ');
 }
 
 // Visual indicator when highlight mode is active

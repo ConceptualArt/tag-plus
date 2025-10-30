@@ -8,11 +8,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const clearButton = document.getElementById('clear-highlights');
     const processButton = document.getElementById('process-button');
     const copyButton = document.getElementById('copy-summary');
-    const summaryTextContent = document.getElementById('summary-text-content');
     const urlInput = document.getElementById('current-url');
     const highlightCount = document.getElementById('highlight-count');
 
     let isHighlightEnabled = false;
+    
+    // Log all elements to check they exist
+    console.log('=== DOM ELEMENTS CHECK ===');
+    console.log('playPauseBtn:', playPauseBtn);
+    console.log('clearButton:', clearButton);
+    console.log('processButton:', processButton);
+    console.log('copyButton:', copyButton);
+    console.log('urlInput:', urlInput);
+    console.log('highlightCount:', highlightCount);
 
     // --- Initialize: Load current tab URL and highlight status ---
     function init() {
@@ -159,6 +167,12 @@ document.addEventListener('DOMContentLoaded', function () {
      * Copies the summary text to the user's clipboard.
      */
     function copySummaryToClipboard() {
+        const summaryTextContent = document.getElementById('summary-text-content');
+        if (!summaryTextContent) {
+            console.error('Summary text content element not found');
+            return;
+        }
+        
         const textToCopy = summaryTextContent.innerText;
         
         navigator.clipboard.writeText(textToCopy)
@@ -176,61 +190,172 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /**
-     * Handles the "Process" button click - Prints marked content to console
+     * Handles the "Process" button click - Calls API with content
      */
     function handleProcessClick() {
+        console.log('=== PROCESS BUTTON CLICKED ===');
+        const originalHTML = processButton.innerHTML;
+        processButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-stars" viewBox="0 0 16 16"><path d="M7.657 6.247c.11-.33.576-.33.686 0l.645 1.937a2.89 2.89 0 0 0 1.829 1.828l1.936.645c.33.11.33.576 0 .686l-1.937.645a2.89 2.89 0 0 0-1.828 1.829l-.645 1.936a.361.361 0 0 1-.686 0l-.645-1.937a2.89 2.89 0 0 0-1.828-1.828l-1.937-.645a.361.361 0 0 1 0-.686l1.937-.645a2.89 2.89 0 0 0 1.828-1.828zM3.794 1.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387A1.73 1.73 0 0 0 4.593 5.69l-.387 1.162a.217.217 0 0 1-.412 0L3.407 5.69A1.73 1.73 0 0 0 2.31 4.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387A1.73 1.73 0 0 0 3.407 2.31zM10.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732L9.1 2.137a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z"/></svg> Processing...';
+        processButton.disabled = true;
+
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            console.log('Active tabs:', tabs);
             if (tabs && tabs[0]) {
+                console.log('Tab ID:', tabs[0].id);
+                
+                // First, get marked content
                 chrome.tabs.sendMessage(
                     tabs[0].id,
                     { action: 'getMarkedContent' },
-                    (response) => {
-                        if (response && response.success) {
-                            const content = response.content;
-                            
-                            // Visual feedback
-                            const originalHTML = processButton.innerHTML;
-                            processButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-stars" viewBox="0 0 16 16"><path d="M7.657 6.247c.11-.33.576-.33.686 0l.645 1.937a2.89 2.89 0 0 0 1.829 1.828l1.936.645c.33.11.33.576 0 .686l-1.937.645a2.89 2.89 0 0 0-1.828 1.829l-.645 1.936a.361.361 0 0 1-.686 0l-.645-1.937a2.89 2.89 0 0 0-1.828-1.828l-1.937-.645a.361.361 0 0 1 0-.686l1.937-.645a2.89 2.89 0 0 0 1.828-1.828zM3.794 1.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387A1.73 1.73 0 0 0 4.593 5.69l-.387 1.162a.217.217 0 0 1-.412 0L3.407 5.69A1.73 1.73 0 0 0 2.31 4.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387A1.73 1.73 0 0 0 3.407 2.31zM10.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732L9.1 2.137a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z"/></svg> Processing...';
-                            
-                            // Print to the page's console
-                            chrome.scripting.executeScript({
-                                target: { tabId: tabs[0].id },
-                                func: (markedContent) => {
-                                    console.log('%c📝 MARKED CONTENT', 'font-size: 20px; font-weight: bold; color: #4F4439;');
-                                    console.log('%c════════════════════════════════════════', 'color: #4F4439;');
-                                    console.log(`Total highlights: ${markedContent.length}`);
-                                    console.log('%c════════════════════════════════════════', 'color: #4F4439;');
-                                    
-                                    if (markedContent.length === 0) {
-                                        console.log('%c⚠️ No content highlighted yet', 'color: #ffc107; font-weight: bold;');
+                    (markedResponse) => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Error getting marked content:', chrome.runtime.lastError.message);
+                            processButton.innerHTML = originalHTML;
+                            processButton.disabled = false;
+                            return;
+                        }
+
+                        console.log('Marked content response:', markedResponse);
+
+                        let contentToSend = '';
+                        
+                        // If there's marked content, use it; otherwise get all page content
+                        if (markedResponse && markedResponse.content && markedResponse.content.length > 0) {
+                            contentToSend = markedResponse.content.map(item => item.text).join(' ');
+                            console.log('Using MARKED content, length:', contentToSend.length);
+                            console.log('Content preview:', contentToSend.substring(0, 200) + '...');
+                            sendToAPI(contentToSend, originalHTML);
+                        } else {
+                            console.log('No marked content, getting ALL page content');
+                            // Get all readable content from the page
+                            chrome.tabs.sendMessage(
+                                tabs[0].id,
+                                { action: 'getAllPageContent' },
+                                (pageResponse) => {
+                                    console.log('All page content response:', pageResponse);
+                                    if (pageResponse && pageResponse.content) {
+                                        contentToSend = pageResponse.content;
+                                        console.log('Using ALL PAGE content, length:', contentToSend.length);
+                                        console.log('Content preview:', contentToSend.substring(0, 200) + '...');
+                                        sendToAPI(contentToSend, originalHTML);
                                     } else {
-                                        markedContent.forEach((item) => {
-                                            console.log(`\n%c[${item.index}] ${item.element.toUpperCase()} element`, 'color: #FDC65A; font-weight: bold;');
-                                            console.log(`Text: "${item.text}"`);
-                                            console.log(`Length: ${item.length} characters`);
-                                            console.log('─────────────────────────────────────');
-                                        });
-                                        
-                                        // Also print as a clean array
-                                        console.log('\n%c📋 Array format:', 'font-weight: bold; color: #4F4439;');
-                                        console.log(markedContent.map(item => item.text));
+                                        console.error('Failed to get page content');
+                                        processButton.innerHTML = originalHTML;
+                                        processButton.disabled = false;
                                     }
-                                    
-                                    console.log('%c════════════════════════════════════════', 'color: #4F4439;');
-                                },
-                                args: [content]
-                            });
-                            
-                            setTimeout(() => {
-                                processButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-stars" viewBox="0 0 16 16"><path d="M7.657 6.247c.11-.33.576-.33.686 0l.645 1.937a2.89 2.89 0 0 0 1.829 1.828l1.936.645c.33.11.33.576 0 .686l-1.937.645a2.89 2.89 0 0 0-1.828 1.829l-.645 1.936a.361.361 0 0 1-.686 0l-.645-1.937a2.89 2.89 0 0 0-1.828-1.828l-1.937-.645a.361.361 0 0 1 0-.686l1.937-.645a2.89 2.89 0 0 0 1.828-1.828zM3.794 1.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387A1.73 1.73 0 0 0 4.593 5.69l-.387 1.162a.217.217 0 0 1-.412 0L3.407 5.69A1.73 1.73 0 0 0 2.31 4.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387A1.73 1.73 0 0 0 3.407 2.31zM10.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732L9.1 2.137a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z"/></svg> Processed ✓';
-                                setTimeout(() => {
-                                    processButton.innerHTML = originalHTML;
-                                }, 1500);
-                            }, 1000);
+                                }
+                            );
+                            return;
                         }
                     }
                 );
             }
+        });
+    }
+
+    /**
+     * Send content to the categorization API
+     */
+    function sendToAPI(content, originalButtonHTML) {
+        const apiUrl = 'https://categorize-567586567793.us-central1.run.app/';
+        const payload = {
+            content: content,
+            categories: [] // Empty list as specified
+        };
+        
+        console.log('=== SENDING TO API ===');
+        console.log('API URL:', apiUrl);
+        console.log('Payload:', payload);
+        console.log('Content length:', content.length);
+        
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            console.log('=== API RESPONSE RECEIVED ===');
+            console.log('Status:', response.status);
+            console.log('Status Text:', response.statusText);
+            console.log('Headers:', response.headers);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('=== API DATA PARSED ===');
+            console.log('Full response data:', data);
+            console.log('Category:', data.category);
+            console.log('Summary:', data.summary);
+            
+            // Get the summary element
+            const summaryElement = document.getElementById('summary-text-content');
+            const categoryElement = document.getElementById('category-name');
+            const resultsSection = document.getElementById('results-section');
+            
+            console.log('DOM Elements check:');
+            console.log('summaryElement:', summaryElement);
+            console.log('categoryElement:', categoryElement);
+            console.log('resultsSection:', resultsSection);
+            
+            // Show results section
+            if (resultsSection) {
+                resultsSection.style.display = 'flex';
+                resultsSection.style.flexDirection = 'column';
+                resultsSection.style.gap = '16px';
+                console.log('Results section shown');
+            } else {
+                console.error('Results section not found!');
+            }
+            
+            // Update category
+            if (data.category && categoryElement) {
+                categoryElement.textContent = data.category;
+                console.log('Category updated to:', data.category);
+            } else {
+                console.warn('Could not update category. Element:', categoryElement, 'Data:', data.category);
+            }
+            
+            // Update summary
+            if (data.summary && summaryElement) {
+                summaryElement.innerHTML = `<p>${data.summary}</p>`;
+                console.log('Summary updated');
+            } else {
+                console.warn('Could not update summary. Element:', summaryElement, 'Data:', data.summary);
+            }
+            
+            // Reset button
+            processButton.innerHTML = originalButtonHTML;
+            processButton.disabled = false;
+            console.log('Process button reset');
+        })
+        .catch(error => {
+            console.error('=== API ERROR ===');
+            console.error('Error type:', error.name);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            
+            const summaryElement = document.getElementById('summary-text-content');
+            const resultsSection = document.getElementById('results-section');
+            
+            if (summaryElement) {
+                summaryElement.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+            
+            // Still show the results section to display the error
+            if (resultsSection) {
+                resultsSection.style.display = 'flex';
+                resultsSection.style.flexDirection = 'column';
+                resultsSection.style.gap = '16px';
+            }
+            
+            // Reset button
+            processButton.innerHTML = originalButtonHTML;
+            processButton.disabled = false;
         });
     }
 
