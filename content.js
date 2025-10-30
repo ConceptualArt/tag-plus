@@ -1,6 +1,6 @@
 // Content script for highlighting functionality
 let isHighlightModeEnabled = false;
-let highlightColor = '#FFE6B3'; // Pastel orange/peach color
+let highlightColor = '#87CEEB'; // Sky blue color
 
 // Load saved state when content script loads
 chrome.storage.local.get(['highlightEnabled'], (result) => {
