@@ -36,60 +36,76 @@ document.addEventListener('DOMContentLoaded', function () {
         loadCurrentTabUrl();
         loadHighlightStatus();
         updateHighlightCount();
-        loadCategories();
+        loadCategoriesFromTabGroups();
     }
 
     /**
-     * Load categories from Chrome storage and display them
+     * Load categories from actual Chrome tab groups in the current window
      */
-    function loadCategories() {
-        chrome.storage.local.get(['categories'], (result) => {
-            let loadedCategories = result.categories || [];
-            
-            // Migrate old string-based categories to new object format and clean undefined
-            categories = loadedCategories
-                .filter(cat => cat !== null && cat !== undefined) // Remove null/undefined
-                .map(cat => {
-                    // If it's already an object with name and color, keep it
-                    if (typeof cat === 'object' && cat.name && cat.color) {
-                        return cat;
+    function loadCategoriesFromTabGroups() {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0]) {
+                const currentWindowId = tabs[0].windowId;
+                const currentTabGroupId = tabs[0].groupId;
+                
+                // Get all tab groups in the current window
+                chrome.tabGroups.query({ windowId: currentWindowId }, (groups) => {
+                    console.log('Tab groups in current window:', groups);
+                    
+                    // Convert tab groups to category format
+                    categories = groups
+                        .filter(group => group.title && group.title.trim() !== '') // Only groups with titles
+                        .map(group => ({
+                            name: group.title,
+                            color: getChromeColorHex(group.color),
+                            groupId: group.id
+                        }));
+                    
+                    console.log('Categories from tab groups:', categories);
+                    renderCategories();
+                    
+                    // Set the current tab's group as selected if it's in a group
+                    if (currentTabGroupId && currentTabGroupId !== -1) {
+                        const currentCategory = categories.find(cat => cat.groupId === currentTabGroupId);
+                        if (currentCategory) {
+                            selectCategory(currentCategory);
+                        }
+                    } else if (categories.length > 0) {
+                        // If not in a group, show placeholder
+                        resetCategorySelection();
+                    } else {
+                        resetCategorySelection();
                     }
-                    // If it's a string, convert it to object format
-                    if (typeof cat === 'string' && cat.trim() !== '') {
-                        return {
-                            name: cat,
-                            color: getRandomColor()
-                        };
-                    }
-                    // Filter out invalid entries
-                    return null;
-                })
-                .filter(cat => cat !== null); // Remove any nulls from invalid entries
-            
-            // Save the migrated data
-            if (JSON.stringify(loadedCategories) !== JSON.stringify(categories)) {
-                saveCategories();
-                console.log('Categories migrated and cleaned:', categories);
-            } else {
-                console.log('Loaded categories:', categories);
-            }
-            
-            renderCategories();
-            
-            // Set the first category as selected if available
-            if (categories.length > 0) {
-                selectCategory(categories[0]);
+                });
             }
         });
     }
 
     /**
-     * Save categories to Chrome storage
+     * Reset category selection to placeholder
      */
-    function saveCategories() {
-        chrome.storage.local.set({ categories: categories }, () => {
-            console.log('Categories saved:', categories);
-        });
+    function resetCategorySelection() {
+        selectedCategoryName.textContent = 'Select a category';
+        selectedCategoryName.classList.add('category-placeholder');
+        selectedCategoryColor.style.backgroundColor = '#8BC34A';
+    }
+
+    /**
+     * Map Chrome tab group colors to hex colors
+     */
+    function getChromeColorHex(chromeColor) {
+        const colorMap = {
+            'grey': '#9E9E9E',
+            'blue': '#2196F3',
+            'red': '#F44336',
+            'yellow': '#FFEB3B',
+            'green': '#4CAF50',
+            'pink': '#E91E63',
+            'purple': '#9C27B0',
+            'cyan': '#00BCD4',
+            'orange': '#FF9800'
+        };
+        return colorMap[chromeColor] || '#9E9E9E';
     }
 
     /**
@@ -100,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /**
-     * Add a new category if it doesn't exist
+     * Add a new category if it doesn't exist (creates a tab group)
      */
     function addCategory(categoryName) {
         if (!categoryName || typeof categoryName !== 'string' || categoryName.trim() === '') {
@@ -111,26 +127,54 @@ document.addEventListener('DOMContentLoaded', function () {
         // Clean the category name
         categoryName = categoryName.trim();
 
-        // Check if category already exists (case-insensitive)
-        const existingCategory = categories.find(cat => 
-            cat && cat.name && cat.name.toLowerCase() === categoryName.toLowerCase()
-        );
+        // Reload categories from tab groups first
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (!tabs || !tabs[0]) return;
+            
+            const currentWindowId = tabs[0].windowId;
+            
+            chrome.tabGroups.query({ windowId: currentWindowId }, (groups) => {
+                // Check if a group with this name already exists (case-insensitive)
+                const existingGroup = groups.find(group => 
+                    group.title && group.title.toLowerCase() === categoryName.toLowerCase()
+                );
 
-        if (!existingCategory) {
-            const newCategory = {
-                name: categoryName,
-                color: getRandomColor()
-            };
-            categories.push(newCategory);
-            saveCategories();
-            renderCategories();
-            selectCategory(newCategory);
-            console.log('New category added:', newCategory);
-        } else {
-            // If category exists, just select it
-            selectCategory(existingCategory);
-            console.log('Category already exists:', categoryName);
-        }
+                if (existingGroup) {
+                    // Group exists, select it (which will also move the tab)
+                    const category = {
+                        name: existingGroup.title,
+                        color: getChromeColorHex(existingGroup.color),
+                        groupId: existingGroup.id
+                    };
+                    
+                    // Update categories array and re-render
+                    loadCategoriesFromTabGroups();
+                    
+                    // Select the existing category
+                    setTimeout(() => {
+                        selectCategory(category);
+                    }, 100);
+                    
+                    console.log('Category/Group already exists:', categoryName);
+                } else {
+                    // Create new group with random color
+                    const newCategory = {
+                        name: categoryName,
+                        color: getRandomColor()
+                    };
+                    
+                    // This will create the tab group
+                    selectCategory(newCategory);
+                    
+                    // Reload categories to include the new group
+                    setTimeout(() => {
+                        loadCategoriesFromTabGroups();
+                    }, 200);
+                    
+                    console.log('New category/group will be created:', newCategory);
+                }
+            });
+        });
     }
 
     /**
@@ -154,6 +198,139 @@ document.addEventListener('DOMContentLoaded', function () {
                 item.classList.remove('selected');
             }
         });
+
+        // Handle tab group assignment
+        handleTabGroupForCategory(category);
+    }
+
+    /**
+     * Handle tab group assignment based on selected category
+     */
+    function handleTabGroupForCategory(category) {
+        console.log('=== HANDLING TAB GROUP FOR CATEGORY ===');
+        console.log('Category:', category);
+
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (!tabs || !tabs[0]) {
+                console.error('No active tab found');
+                return;
+            }
+
+            const currentTab = tabs[0];
+            console.log('Current tab ID:', currentTab.id);
+            console.log('Current tab groupId:', currentTab.groupId);
+
+            // If category has a groupId, it means it's an existing group
+            if (category.groupId) {
+                // Move tab to existing group
+                console.log('Moving tab to existing group:', category.groupId);
+                chrome.tabs.group({ 
+                    tabIds: [currentTab.id], 
+                    groupId: category.groupId 
+                }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error moving tab to group:', chrome.runtime.lastError.message);
+                    } else {
+                        console.log('Tab moved to existing group successfully');
+                    }
+                });
+            } else {
+                // Category doesn't have groupId - need to create new group
+                // Check if current tab is in a group
+                if (currentTab.groupId && currentTab.groupId !== -1) {
+                    // Tab is in a group - check how many tabs are in that group
+                    chrome.tabs.query({ groupId: currentTab.groupId }, (tabsInGroup) => {
+                        console.log('Tabs in current group:', tabsInGroup.length);
+
+                        if (tabsInGroup.length === 1) {
+                            // Only tab in the group - update the existing group
+                            console.log('Only tab in group, updating group name and color');
+                            updateTabGroup(currentTab.groupId, category);
+                            // Reload categories to reflect the change
+                            setTimeout(() => loadCategoriesFromTabGroups(), 200);
+                        } else {
+                            // Multiple tabs in group - ungroup this tab and create new group
+                            console.log('Multiple tabs in group, ungrouping and creating new group');
+                            chrome.tabs.ungroup([currentTab.id], () => {
+                                if (chrome.runtime.lastError) {
+                                    console.error('Error ungrouping tab:', chrome.runtime.lastError.message);
+                                    return;
+                                }
+                                // Create new group for this tab
+                                createNewTabGroup(currentTab.id, category);
+                                // Reload categories to include new group
+                                setTimeout(() => loadCategoriesFromTabGroups(), 200);
+                            });
+                        }
+                    });
+                } else {
+                    // Tab is not in a group - create new group
+                    console.log('Tab not in any group, creating new group');
+                    createNewTabGroup(currentTab.id, category);
+                    // Reload categories to include new group
+                    setTimeout(() => loadCategoriesFromTabGroups(), 200);
+                }
+            }
+        });
+    }
+
+    /**
+     * Create a new tab group with the given category
+     */
+    function createNewTabGroup(tabId, category) {
+        console.log('Creating new tab group for tab:', tabId);
+        
+        chrome.tabs.group({ tabIds: [tabId] }, (groupId) => {
+            if (chrome.runtime.lastError) {
+                console.error('Error creating tab group:', chrome.runtime.lastError.message);
+                return;
+            }
+            
+            console.log('Tab group created with ID:', groupId);
+            updateTabGroup(groupId, category);
+        });
+    }
+
+    /**
+     * Update tab group with category name and color
+     */
+    function updateTabGroup(groupId, category) {
+        // Convert hex color to Chrome tab group color name
+        const chromeColor = getChromeColorFromHex(category.color);
+        
+        chrome.tabGroups.update(groupId, {
+            title: category.name,
+            color: chromeColor
+        }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('Error updating tab group:', chrome.runtime.lastError.message);
+            } else {
+                console.log('Tab group updated successfully');
+                console.log('  - Title:', category.name);
+                console.log('  - Color:', chromeColor);
+            }
+        });
+    }
+
+    /**
+     * Map hex colors to Chrome's predefined tab group colors
+     */
+    function getChromeColorFromHex(hexColor) {
+        // Chrome only supports these colors: grey, blue, red, yellow, green, pink, purple, cyan, orange
+        const colorMap = {
+            '#8BC34A': 'green',  // Light green
+            '#4CAF50': 'green',  // Green
+            '#2196F3': 'blue',   // Blue
+            '#03A9F4': 'cyan',   // Light blue / cyan
+            '#FF9800': 'orange', // Orange
+            '#FF5722': 'red',    // Deep orange / red
+            '#E91E63': 'pink',   // Pink
+            '#9C27B0': 'purple', // Purple
+            '#673AB7': 'purple', // Deep purple
+            '#3F51B5': 'blue'    // Indigo / blue
+        };
+
+        return colorMap[hexColor] || 'grey';
     }
 
     /**
@@ -191,6 +368,10 @@ document.addEventListener('DOMContentLoaded', function () {
      * Toggle dropdown open/close
      */
     function toggleDropdown() {
+        if (!categoryDropdown.classList.contains('open')) {
+            // Reload categories from tab groups when opening dropdown
+            loadCategoriesFromTabGroups();
+        }
         categoryDropdown.classList.toggle('open');
     }
 
@@ -432,15 +613,20 @@ document.addEventListener('DOMContentLoaded', function () {
      */
     function sendToAPI(content, originalButtonHTML) {
         const apiUrl = 'https://categorize-567586567793.us-central1.run.app/';
+        
+        // Get current categories (tab group names)
+        const existingCategories = categories.map(cat => cat.name);
+        
         const payload = {
             content: content,
-            categories: [] // Empty list as specified
+            items: existingCategories // Send existing categories as "items"
         };
         
         console.log('=== SENDING TO API ===');
         console.log('API URL:', apiUrl);
         console.log('Payload:', payload);
         console.log('Content length:', content.length);
+        console.log('Existing categories (items):', existingCategories);
         
         fetch(apiUrl, {
             method: 'POST',
@@ -483,6 +669,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.category) {
                 console.log('Adding category to listbox:', data.category);
                 addCategory(data.category);
+                // Tab group will be created/updated automatically by addCategory -> selectCategory
             } else {
                 console.warn('No category in response');
             }
@@ -498,11 +685,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.log('Summary updated');
             } else {
                 console.warn('Could not update summary. Element:', summaryElement, 'Data:', data.summary);
-            }
-            
-            // Create tab group with category name
-            if (data.category) {
-                createTabGroup(data.category);
             }
             
             // Reset button
@@ -533,67 +715,6 @@ document.addEventListener('DOMContentLoaded', function () {
             // Reset button
             processButton.innerHTML = originalButtonHTML;
             processButton.disabled = false;
-        });
-    }
-
-    /**
-     * Create a tab group with the category name and assign a color
-     */
-    function createTabGroup(categoryName) {
-        console.log('=== CREATING TAB GROUP ===');
-        console.log('Category name:', categoryName);
-        
-        // Get the current active tab
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs && tabs[0]) {
-                const currentTab = tabs[0];
-                console.log('Current tab ID:', currentTab.id);
-                console.log('Current tab groupId:', currentTab.groupId);
-                
-                // If tab is already in a group, update that group instead of creating a new one
-                if (currentTab.groupId && currentTab.groupId !== -1) {
-                    console.log('Tab already in group, updating existing group:', currentTab.groupId);
-                    chrome.tabGroups.update(currentTab.groupId, {
-                        title: categoryName,
-                        color: 'green'
-                    }, () => {
-                        if (chrome.runtime.lastError) {
-                            console.error('Error updating existing tab group:', chrome.runtime.lastError.message);
-                        } else {
-                            console.log('Existing tab group updated successfully');
-                            console.log('  - Title:', categoryName);
-                            console.log('  - Color: green');
-                        }
-                    });
-                } else {
-                    // Create a new tab group
-                    console.log('Creating new tab group...');
-                    chrome.tabs.group({ tabIds: [currentTab.id] }, (groupId) => {
-                        if (chrome.runtime.lastError) {
-                            console.error('Error creating tab group:', chrome.runtime.lastError.message);
-                            return;
-                        }
-                        
-                        console.log('Tab group created with ID:', groupId);
-                        
-                        // Update the group with title and color
-                        chrome.tabGroups.update(groupId, {
-                            title: categoryName,
-                            color: 'green'
-                        }, () => {
-                            if (chrome.runtime.lastError) {
-                                console.error('Error updating tab group:', chrome.runtime.lastError.message);
-                            } else {
-                                console.log('Tab group updated successfully');
-                                console.log('  - Title:', categoryName);
-                                console.log('  - Color: green');
-                            }
-                        });
-                    });
-                }
-            } else {
-                console.error('No active tab found');
-            }
         });
     }
 

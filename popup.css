@@ -274,6 +274,11 @@ body {
     font-size: 14px;
 }
 
+/* Hide color circle when placeholder is shown */
+.category-selected-content:has(.category-placeholder) .category-color {
+    display: none;
+}
+
 /* Scrollbar styling for category options */
 .category-options::-webkit-scrollbar {
     width: 6px;
