@@ -164,7 +164,7 @@ body {
 }
 
 .highlight-count {
-    background-color: var(--highlight-bg);
+    background-color: #FDC65A;
     padding: 2px 8px;
     border-radius: 4px;
     font-weight: 600;
