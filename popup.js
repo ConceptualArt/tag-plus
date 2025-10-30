@@ -685,6 +685,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.log('Summary updated');
             } else {
                 console.warn('Could not update summary. Element:', summaryElement, 'Data:', data.summary);
+                // Show placeholder if no summary
+                if (summaryElement) {
+                    summaryElement.innerHTML = '<p class="summary-placeholder">No summary available.</p>';
+                }
             }
             
             // Reset button
@@ -699,17 +703,9 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('Error stack:', error.stack);
             
             const summaryElement = document.getElementById('summary-text-content');
-            const resultsSection = document.getElementById('results-section');
             
             if (summaryElement) {
-                summaryElement.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
-            }
-            
-            // Still show the results section to display the error
-            if (resultsSection) {
-                resultsSection.style.display = 'flex';
-                resultsSection.style.flexDirection = 'column';
-                resultsSection.style.gap = '16px';
+                summaryElement.innerHTML = `<p class="summary-placeholder" style="color: #F44336;">Error processing content: ${error.message}</p>`;
             }
             
             // Reset button
