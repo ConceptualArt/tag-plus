@@ -10,10 +10,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const copyButton = document.getElementById('copy-summary');
     const urlInput = document.getElementById('current-url');
     const highlightCount = document.getElementById('highlight-count');
-    const categoryListbox = document.getElementById('category-listbox');
+    const categoryDropdown = document.getElementById('category-dropdown');
+    const categorySelected = document.getElementById('category-selected');
+    const categoryOptions = document.getElementById('category-options');
+    const selectedCategoryName = document.getElementById('selected-category-name');
+    const selectedCategoryColor = document.getElementById('selected-category-color');
 
     let isHighlightEnabled = false;
-    let categories = []; // Store categories
+    let categories = []; // Store categories as objects: { name: string, color: string }
+    const availableColors = ['#8BC34A', '#4CAF50', '#2196F3', '#03A9F4', '#FF9800', '#FF5722', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5'];
     
     // Log all elements to check they exist
     console.log('=== DOM ELEMENTS CHECK ===');
@@ -23,7 +28,8 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('copyButton:', copyButton);
     console.log('urlInput:', urlInput);
     console.log('highlightCount:', highlightCount);
-    console.log('categoryListbox:', categoryListbox);
+    console.log('categoryDropdown:', categoryDropdown);
+    console.log('categoryOptions:', categoryOptions);
 
     // --- Initialize: Load current tab URL and highlight status ---
     function init() {
@@ -38,9 +44,42 @@ document.addEventListener('DOMContentLoaded', function () {
      */
     function loadCategories() {
         chrome.storage.local.get(['categories'], (result) => {
-            categories = result.categories || [];
-            console.log('Loaded categories:', categories);
+            let loadedCategories = result.categories || [];
+            
+            // Migrate old string-based categories to new object format and clean undefined
+            categories = loadedCategories
+                .filter(cat => cat !== null && cat !== undefined) // Remove null/undefined
+                .map(cat => {
+                    // If it's already an object with name and color, keep it
+                    if (typeof cat === 'object' && cat.name && cat.color) {
+                        return cat;
+                    }
+                    // If it's a string, convert it to object format
+                    if (typeof cat === 'string' && cat.trim() !== '') {
+                        return {
+                            name: cat,
+                            color: getRandomColor()
+                        };
+                    }
+                    // Filter out invalid entries
+                    return null;
+                })
+                .filter(cat => cat !== null); // Remove any nulls from invalid entries
+            
+            // Save the migrated data
+            if (JSON.stringify(loadedCategories) !== JSON.stringify(categories)) {
+                saveCategories();
+                console.log('Categories migrated and cleaned:', categories);
+            } else {
+                console.log('Loaded categories:', categories);
+            }
+            
             renderCategories();
+            
+            // Set the first category as selected if available
+            if (categories.length > 0) {
+                selectCategory(categories[0]);
+            }
         });
     }
 
@@ -54,67 +93,115 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /**
+     * Get a random color from available colors
+     */
+    function getRandomColor() {
+        return availableColors[Math.floor(Math.random() * availableColors.length)];
+    }
+
+    /**
      * Add a new category if it doesn't exist
      */
     function addCategory(categoryName) {
-        if (!categoryName || categoryName.trim() === '') {
-            console.warn('Empty category name, not adding');
+        if (!categoryName || typeof categoryName !== 'string' || categoryName.trim() === '') {
+            console.warn('Invalid category name, not adding:', categoryName);
             return;
         }
 
+        // Clean the category name
+        categoryName = categoryName.trim();
+
         // Check if category already exists (case-insensitive)
-        const exists = categories.some(cat => 
-            cat.toLowerCase() === categoryName.toLowerCase()
+        const existingCategory = categories.find(cat => 
+            cat && cat.name && cat.name.toLowerCase() === categoryName.toLowerCase()
         );
 
-        if (!exists) {
-            categories.push(categoryName);
+        if (!existingCategory) {
+            const newCategory = {
+                name: categoryName,
+                color: getRandomColor()
+            };
+            categories.push(newCategory);
             saveCategories();
             renderCategories();
-            console.log('New category added:', categoryName);
+            selectCategory(newCategory);
+            console.log('New category added:', newCategory);
         } else {
+            // If category exists, just select it
+            selectCategory(existingCategory);
             console.log('Category already exists:', categoryName);
         }
     }
 
     /**
-     * Render the category list
+     * Select a category and update the dropdown display
+     */
+    function selectCategory(category) {
+        if (!category || !category.name || !category.color) {
+            console.warn('Invalid category object:', category);
+            return;
+        }
+        
+        selectedCategoryName.textContent = category.name;
+        selectedCategoryName.classList.remove('category-placeholder');
+        selectedCategoryColor.style.backgroundColor = category.color;
+        
+        // Update selected state in the options
+        document.querySelectorAll('.category-item').forEach(item => {
+            if (item.dataset.categoryName === category.name) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+
+    /**
+     * Render the category dropdown options
      */
     function renderCategories() {
-        categoryListbox.innerHTML = '';
+        categoryOptions.innerHTML = '';
         
         if (categories.length === 0) {
             // The CSS will show the placeholder message
             return;
         }
 
-        categories.forEach((category, index) => {
+        categories.forEach((category) => {
             const categoryItem = document.createElement('div');
             categoryItem.className = 'category-item';
+            categoryItem.dataset.categoryName = category.name;
             categoryItem.innerHTML = `
-                <span class="category-color"></span>
-                <span class="category-name">${category}</span>
+                <span class="category-color" style="background-color: ${category.color};"></span>
+                <span class="category-name">${category.name}</span>
             `;
             
             // Add click handler to select category
             categoryItem.addEventListener('click', () => {
-                // Remove selected class from all items
-                document.querySelectorAll('.category-item').forEach(item => {
-                    item.classList.remove('selected');
-                });
-                // Add selected class to clicked item
-                categoryItem.classList.add('selected');
+                selectCategory(category);
+                // Close the dropdown
+                categoryDropdown.classList.remove('open');
             });
 
-            categoryListbox.appendChild(categoryItem);
+            categoryOptions.appendChild(categoryItem);
         });
-
-        // Auto-select the last added category
-        const lastItem = categoryListbox.lastElementChild;
-        if (lastItem) {
-            lastItem.classList.add('selected');
-        }
     }
+
+    /**
+     * Toggle dropdown open/close
+     */
+    function toggleDropdown() {
+        categoryDropdown.classList.toggle('open');
+    }
+
+    /**
+     * Close dropdown when clicking outside
+     */
+    document.addEventListener('click', (event) => {
+        if (!categoryDropdown.contains(event.target)) {
+            categoryDropdown.classList.remove('open');
+        }
+    });
 
     /**
      * Fetches the URL of the currently active tab and displays it.
@@ -515,6 +602,7 @@ document.addEventListener('DOMContentLoaded', function () {
     clearButton.addEventListener('click', handleClearClick);
     copyButton.addEventListener('click', copySummaryToClipboard);
     processButton.addEventListener('click', handleProcessClick);
+    categorySelected.addEventListener('click', toggleDropdown);
 
     // Listen for status changes from content script
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

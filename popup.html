@@ -55,8 +55,19 @@
       Process
     </button>
 
-    <div class="category-listbox" id="category-listbox">
-      <!-- Categories will be dynamically added here -->
+    <div class="category-dropdown" id="category-dropdown">
+      <div class="category-selected" id="category-selected">
+        <div class="category-selected-content">
+          <span class="category-color" id="selected-category-color" style="background-color: #8BC34A;"></span>
+          <span class="category-name category-placeholder" id="selected-category-name">Select a category</span>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down category-dropdown-icon" viewBox="0 0 16 16">
+          <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
+        </svg>
+      </div>
+      <div class="category-options" id="category-options">
+        <!-- Categories will be dynamically added here -->
+      </div>
     </div>
 
     <div class="summary-section">
