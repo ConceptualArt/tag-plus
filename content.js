@@ -39,6 +39,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 document.addEventListener('mouseup', (e) => {
   if (!isHighlightModeEnabled) return;
   
+  // Don't highlight in the extension popup itself
+  if (e.target.closest('.container')) return;
+  
   const selection = window.getSelection();
   if (!selection.rangeCount || selection.isCollapsed) return;
   

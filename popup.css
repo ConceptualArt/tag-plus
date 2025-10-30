@@ -25,6 +25,11 @@ body {
     font-size: 14px;
 }
 
+/* Prevent highlights in the popup extension */
+.chrome-highlight-extension {
+    background-color: transparent !important;
+}
+
 .container {
     padding: 16px;
     display: flex;

@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const copyButton = document.getElementById('copy-summary');
     const urlInput = document.getElementById('current-url');
     const highlightCount = document.getElementById('highlight-count');
+    const categoryElement = document.querySelector('.category-name'); // Fix: use querySelector for class
 
     let isHighlightEnabled = false;
     
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('copyButton:', copyButton);
     console.log('urlInput:', urlInput);
     console.log('highlightCount:', highlightCount);
+    console.log('categoryElement:', categoryElement);
 
     // --- Initialize: Load current tab URL and highlight status ---
     function init() {
@@ -289,17 +291,25 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             console.log('=== API DATA PARSED ===');
             console.log('Full response data:', data);
-            console.log('Category:', data.category);
-            console.log('Summary:', data.summary);
+            console.log('Type of data:', typeof data);
+            console.log('Keys in data:', Object.keys(data));
+            console.log('data.category:', data.category);
+            console.log('Type of category:', typeof data.category);
+            console.log('data.summary:', data.summary);
+            console.log('Type of summary:', typeof data.summary);
+            
+            // Log the exact JSON string
+            console.log('Data as JSON string:', JSON.stringify(data, null, 2));
             
             // Get the summary element
             const summaryElement = document.getElementById('summary-text-content');
-            const categoryElement = document.getElementById('category-name');
+            const categoryNameElement = document.querySelector('.category-name'); // Fix: use querySelector for class
             const resultsSection = document.getElementById('results-section');
             
             console.log('DOM Elements check:');
             console.log('summaryElement:', summaryElement);
-            console.log('categoryElement:', categoryElement);
+            console.log('categoryNameElement:', categoryNameElement);
+            console.log('categoryNameElement current text:', categoryNameElement ? categoryNameElement.textContent : 'N/A');
             console.log('resultsSection:', resultsSection);
             
             // Show results section
@@ -313,16 +323,26 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             
             // Update category
-            if (data.category && categoryElement) {
-                categoryElement.textContent = data.category;
+            if (data.category && categoryNameElement) {
+                console.log('BEFORE category update. Current text:', categoryNameElement.textContent);
+                categoryNameElement.textContent = data.category;
+                console.log('AFTER category update. New text:', categoryNameElement.textContent);
                 console.log('Category updated to:', data.category);
             } else {
-                console.warn('Could not update category. Element:', categoryElement, 'Data:', data.category);
+                console.warn('Could not update category.');
+                console.warn('  - categoryNameElement exists?', !!categoryNameElement);
+                console.warn('  - data.category exists?', !!data.category);
+                console.warn('  - data.category value:', data.category);
             }
             
-            // Update summary
+            // Update summary - use textContent to prevent HTML injection and avoid highlight issues
             if (data.summary && summaryElement) {
-                summaryElement.innerHTML = `<p>${data.summary}</p>`;
+                // Clear any existing content first
+                summaryElement.innerHTML = '';
+                // Create a new paragraph element
+                const p = document.createElement('p');
+                p.textContent = data.summary; // Use textContent instead of innerHTML
+                summaryElement.appendChild(p);
                 console.log('Summary updated');
             } else {
                 console.warn('Could not update summary. Element:', summaryElement, 'Data:', data.summary);
