@@ -348,6 +348,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.warn('Could not update summary. Element:', summaryElement, 'Data:', data.summary);
             }
             
+            // Create tab group with category name
+            if (data.category) {
+                createTabGroup(data.category);
+            }
+            
             // Reset button
             processButton.innerHTML = originalButtonHTML;
             processButton.disabled = false;
@@ -376,6 +381,67 @@ document.addEventListener('DOMContentLoaded', function () {
             // Reset button
             processButton.innerHTML = originalButtonHTML;
             processButton.disabled = false;
+        });
+    }
+
+    /**
+     * Create a tab group with the category name and assign a color
+     */
+    function createTabGroup(categoryName) {
+        console.log('=== CREATING TAB GROUP ===');
+        console.log('Category name:', categoryName);
+        
+        // Get the current active tab
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0]) {
+                const currentTab = tabs[0];
+                console.log('Current tab ID:', currentTab.id);
+                console.log('Current tab groupId:', currentTab.groupId);
+                
+                // If tab is already in a group, update that group instead of creating a new one
+                if (currentTab.groupId && currentTab.groupId !== -1) {
+                    console.log('Tab already in group, updating existing group:', currentTab.groupId);
+                    chrome.tabGroups.update(currentTab.groupId, {
+                        title: categoryName,
+                        color: 'green'
+                    }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Error updating existing tab group:', chrome.runtime.lastError.message);
+                        } else {
+                            console.log('Existing tab group updated successfully');
+                            console.log('  - Title:', categoryName);
+                            console.log('  - Color: green');
+                        }
+                    });
+                } else {
+                    // Create a new tab group
+                    console.log('Creating new tab group...');
+                    chrome.tabs.group({ tabIds: [currentTab.id] }, (groupId) => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Error creating tab group:', chrome.runtime.lastError.message);
+                            return;
+                        }
+                        
+                        console.log('Tab group created with ID:', groupId);
+                        
+                        // Update the group with title and color
+                        chrome.tabGroups.update(groupId, {
+                            title: categoryName,
+                            color: 'green'
+                        }, () => {
+                            if (chrome.runtime.lastError) {
+                                console.error('Error updating tab group:', chrome.runtime.lastError.message);
+                            } else {
+                                console.log('Tab group updated successfully');
+                                console.log('  - Title:', categoryName);
+                                console.log('  - Color: green');
+                            }
+                        });
+                    });
+                }
+            } else {
+                console.error('No active tab found');
+            }
         });
     }
 
