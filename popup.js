@@ -10,9 +10,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const copyButton = document.getElementById('copy-summary');
     const urlInput = document.getElementById('current-url');
     const highlightCount = document.getElementById('highlight-count');
-    const categoryElement = document.querySelector('.category-name'); // Fix: use querySelector for class
+    const categoryListbox = document.getElementById('category-listbox');
 
     let isHighlightEnabled = false;
+    let categories = []; // Store categories
     
     // Log all elements to check they exist
     console.log('=== DOM ELEMENTS CHECK ===');
@@ -22,13 +23,97 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('copyButton:', copyButton);
     console.log('urlInput:', urlInput);
     console.log('highlightCount:', highlightCount);
-    console.log('categoryElement:', categoryElement);
+    console.log('categoryListbox:', categoryListbox);
 
     // --- Initialize: Load current tab URL and highlight status ---
     function init() {
         loadCurrentTabUrl();
         loadHighlightStatus();
         updateHighlightCount();
+        loadCategories();
+    }
+
+    /**
+     * Load categories from Chrome storage and display them
+     */
+    function loadCategories() {
+        chrome.storage.local.get(['categories'], (result) => {
+            categories = result.categories || [];
+            console.log('Loaded categories:', categories);
+            renderCategories();
+        });
+    }
+
+    /**
+     * Save categories to Chrome storage
+     */
+    function saveCategories() {
+        chrome.storage.local.set({ categories: categories }, () => {
+            console.log('Categories saved:', categories);
+        });
+    }
+
+    /**
+     * Add a new category if it doesn't exist
+     */
+    function addCategory(categoryName) {
+        if (!categoryName || categoryName.trim() === '') {
+            console.warn('Empty category name, not adding');
+            return;
+        }
+
+        // Check if category already exists (case-insensitive)
+        const exists = categories.some(cat => 
+            cat.toLowerCase() === categoryName.toLowerCase()
+        );
+
+        if (!exists) {
+            categories.push(categoryName);
+            saveCategories();
+            renderCategories();
+            console.log('New category added:', categoryName);
+        } else {
+            console.log('Category already exists:', categoryName);
+        }
+    }
+
+    /**
+     * Render the category list
+     */
+    function renderCategories() {
+        categoryListbox.innerHTML = '';
+        
+        if (categories.length === 0) {
+            // The CSS will show the placeholder message
+            return;
+        }
+
+        categories.forEach((category, index) => {
+            const categoryItem = document.createElement('div');
+            categoryItem.className = 'category-item';
+            categoryItem.innerHTML = `
+                <span class="category-color"></span>
+                <span class="category-name">${category}</span>
+            `;
+            
+            // Add click handler to select category
+            categoryItem.addEventListener('click', () => {
+                // Remove selected class from all items
+                document.querySelectorAll('.category-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                // Add selected class to clicked item
+                categoryItem.classList.add('selected');
+            });
+
+            categoryListbox.appendChild(categoryItem);
+        });
+
+        // Auto-select the last added category
+        const lastItem = categoryListbox.lastElementChild;
+        if (lastItem) {
+            lastItem.classList.add('selected');
+        }
     }
 
     /**
@@ -303,36 +388,16 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Get the summary element
             const summaryElement = document.getElementById('summary-text-content');
-            const categoryNameElement = document.querySelector('.category-name'); // Fix: use querySelector for class
-            const resultsSection = document.getElementById('results-section');
             
             console.log('DOM Elements check:');
             console.log('summaryElement:', summaryElement);
-            console.log('categoryNameElement:', categoryNameElement);
-            console.log('categoryNameElement current text:', categoryNameElement ? categoryNameElement.textContent : 'N/A');
-            console.log('resultsSection:', resultsSection);
             
-            // Show results section
-            if (resultsSection) {
-                resultsSection.style.display = 'flex';
-                resultsSection.style.flexDirection = 'column';
-                resultsSection.style.gap = '16px';
-                console.log('Results section shown');
+            // Update category - add to listbox
+            if (data.category) {
+                console.log('Adding category to listbox:', data.category);
+                addCategory(data.category);
             } else {
-                console.error('Results section not found!');
-            }
-            
-            // Update category
-            if (data.category && categoryNameElement) {
-                console.log('BEFORE category update. Current text:', categoryNameElement.textContent);
-                categoryNameElement.textContent = data.category;
-                console.log('AFTER category update. New text:', categoryNameElement.textContent);
-                console.log('Category updated to:', data.category);
-            } else {
-                console.warn('Could not update category.');
-                console.warn('  - categoryNameElement exists?', !!categoryNameElement);
-                console.warn('  - data.category exists?', !!data.category);
-                console.warn('  - data.category value:', data.category);
+                console.warn('No category in response');
             }
             
             // Update summary - use textContent to prevent HTML injection and avoid highlight issues
