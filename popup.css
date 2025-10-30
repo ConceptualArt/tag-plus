@@ -16,13 +16,28 @@
     --border-radius-small: 8px;
 }
 
+* {
+    box-sizing: border-box;
+}
+
+html {
+    margin: 0;
+    padding: 0;
+    border: none;
+    outline: none;
+}
+
 body {
     font-family: 'Lexend', sans-serif;
     background-color: var(--bg-color);
     color: var(--primary-text);
     margin: 0;
+    padding: 0;
     width: 320px; /* Standard extension popup width */
     font-size: 14px;
+    border: none;
+    outline: none;
+    overflow-x: hidden;
 }
 
 /* Prevent highlights in the popup extension */
