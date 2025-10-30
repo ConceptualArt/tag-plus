@@ -16,14 +16,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.set({ highlightEnabled: isHighlightModeEnabled });
     updateCursor();
     sendResponse({ success: true, enabled: isHighlightModeEnabled });
+    return true; // Keep the message channel open for async response
   } else if (request.action === 'getStatus') {
     sendResponse({ enabled: isHighlightModeEnabled });
+    return true;
   } else if (request.action === 'clearHighlights') {
     clearAllHighlights();
     sendResponse({ success: true });
+    return true;
   } else if (request.action === 'getMarkedContent') {
     const markedContent = getMarkedContent();
     sendResponse({ success: true, content: markedContent });
+    return true;
   }
 });
 

@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Element Selectors ---
     const playPauseBtn = document.getElementById('play-pause');
-    const toggleIcon = document.getElementById('toggle-icon');
     const clearButton = document.getElementById('clear-highlights');
     const processButton = document.getElementById('process-button');
     const copyButton = document.getElementById('copy-summary');
@@ -48,6 +47,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     tabs[0].id,
                     { action: 'getStatus' },
                     (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.log('Error loading status:', chrome.runtime.lastError.message);
+                            return;
+                        }
                         if (response) {
                             isHighlightEnabled = response.enabled;
                             updateToggleButton(isHighlightEnabled);
@@ -66,14 +69,14 @@ document.addEventListener('DOMContentLoaded', function () {
             playPauseBtn.style.backgroundColor = '#6B4C29'; // Brown when active
             playPauseBtn.style.color = '#FFFFFF';
             playPauseBtn.title = 'Highlighting ON - Click to disable';
-            // Change to play icon
-            toggleIcon.innerHTML = '<path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393"/>';
+            // Change to play icon (complete SVG replacement)
+            playPauseBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16" id="toggle-icon"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393"/></svg>';
         } else {
             playPauseBtn.style.backgroundColor = '';
             playPauseBtn.style.color = '';
             playPauseBtn.title = 'Highlighting OFF - Click to enable';
-            // Change to pause icon
-            toggleIcon.innerHTML = '<path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"/>';
+            // Change to pause icon (complete SVG replacement)
+            playPauseBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pause-fill" viewBox="0 0 16 16" id="toggle-icon"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"/></svg>';
         }
     }
 
@@ -109,8 +112,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     tabs[0].id,
                     { action: 'toggleHighlight', enabled: isHighlightEnabled },
                     (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Error toggling highlight:', chrome.runtime.lastError.message);
+                            // Revert the state if there was an error
+                            isHighlightEnabled = !isHighlightEnabled;
+                            return;
+                        }
                         if (response) {
                             updateToggleButton(isHighlightEnabled);
+                            console.log('Highlight mode:', isHighlightEnabled ? 'ON' : 'OFF');
                         }
                     }
                 );
